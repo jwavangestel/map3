@@ -17,48 +17,51 @@
         :options="waterenOptions"
         :options-style="waterenStyleFunction"
       />
+
+
+
       <l-geo-json 
-        :geojson="perceel"
-        :options="perceelOptions"
-        :options-style="perceelStyleFunction"
+        :geojson="bouwland"
+        :options="perceel_bouwlandOptions"
+        :options-style="perceelBouwlandStyleFunction"
       />
       <l-geo-json 
-        :geojson="perceel_dennenbos"
+        :geojson="dennenbos"
         :options="perceel_dennenbosOptions"
         :options-style="perceelDennenbosStyleFunction"
       />
       <l-geo-json 
-        :geojson="perceel_heide"
+        :geojson="heide"
         :options="perceel_heideOptions"
         :options-style="perceelHeideStyleFunction"
       />
       <l-geo-json 
-        :geojson="perceel_hakhout"
+        :geojson="hakhout"
         :options="perceel_hakhoutOptions"
         :options-style="perceelHakhoutStyleFunction"
       />
       <l-geo-json 
-        :geojson="perceel_boomgaard"
+        :geojson="boomgaard"
         :options="perceel_boomgaardOptions"
         :options-style="perceelBoomgaardStyleFunction"
       />
       <l-geo-json 
-        :geojson="perceel_hooiland"
+        :geojson="hooiland"
         :options="perceel_hooilandOptions"
         :options-style="perceelHooilandStyleFunction"
       />
       <l-geo-json 
-        :geojson="perceel_kerkhof"
+        :geojson="kerkhof"
         :options="perceel_kerkhofOptions"
         :options-style="perceelKerkhofStyleFunction"
       />
       <l-geo-json 
-        :geojson="perceel_tuin"
+        :geojson="tuin"
         :options="perceel_tuinOptions"
         :options-style="perceelTuinStyleFunction"
       />
       <l-geo-json 
-        :geojson="perceel_weiland"
+        :geojson="weiland"
         :options="perceel_weilandOptions"
         :options-style="perceelWeilandStyleFunction"
       />
@@ -68,6 +71,7 @@
         :options-style="bouwStyleFunction"
       />
     </l-map>
+    {{ weiland }}
   </main>
 </template>
 
@@ -75,11 +79,12 @@
 <script setup>
 import "leaflet/dist/leaflet.css"
 import { LMap, LTileLayer, LMarker, LGeoJson } from "@vue-leaflet/vue-leaflet"
-import { ref } from "vue"
+import { ref, onMounted, watch, computed } from 'vue'
+import EventService from '@/services/EventService.js'
 
 import arcades from "@/data/arcades.json"
 import perceelgrens from "@/data/perceelgrens.json"
-import perceel from "@/data/perceel.json"
+//import perceel from "@/data/perceel.json"
 import perceel_dennenbos from "@/data/perceel_dennenbos.json"
 import perceel_heide from "@/data/perceel_heide.json"
 import perceel_hakhout from "@/data/perceel_hakhout.json"
@@ -87,17 +92,17 @@ import perceel_boomgaard from "@/data/perceel_boomgaard.json"
 import perceel_hooiland from "@/data/perceel_hooiland.json"
 import perceel_kerkhof from "@/data/perceel_kerkhof.json"
 import perceel_tuin from "@/data/perceel_tuin.json"
-import perceel_weiland from "@/data/perceel_weiland.json"
+//import perceel_weiland from "@/data/perceel_weiland.json"
 import perceel_bebouwing from "@/data/perceel_bebouwing.json"
 
-import bouw from "@/data/bouw.json"
+// import bouw from "@/data/bouw.json"
 
-import wateren from "@/data/wateren.json"
-
-
+// import wateren from "@/data/wateren.json"
 
 
-const  perceelStyleFunction = {   fillColor: "#d1c40f",
+
+
+const  perceelBouwlandStyleFunction = {   fillColor: "#d1c40f",
     color: "#000",
     weight: 1,
     opacity: 1,
@@ -151,7 +156,7 @@ const  perceelStyleFunction = {   fillColor: "#d1c40f",
     opacity: 1,
     fillOpacity: 0.8}
 
-    const  perceelBebouwingStyleFunction = {   fillColor: "#969696",
+    const  perceelStyleFunction = {   fillColor: "#969696",
     color: "#000",
     weight: 1,
     opacity: 1,
@@ -177,11 +182,78 @@ const  perceelgrensStyleFunction = {color:  'gray'}
 let zoom = ref(12.48)
 let center = ref([51.45322, 5.359482])
 
-//const wateren_pkl = await fetch("http://localhost:8080/geoserver/eghv/ows?service=WFS&typenames=eghv:wateren&version=2.0.0&outputformat=application/json&request=GetFeature", {
-//    "cache": "default", "credentials": "omit", "headers": { "Accept": "*/*", "Accept-Language": "en-US,en;q=0.9", "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3.1 Safari/605.1.15"},
-//    "method": "GET", "mode": "cors","redirect": "follow", "referrer": "http://localhost:3000/", "referrerPolicy": "strict-origin-when-cross-origin"})
-//  const data = await wateren_pkl.json();
-//  const wateren = data;
+//const props = defineProps({
+//   id: { required: true },
+//})
+
+const bouw = ref(null)
+const wateren = ref(null)
+const perceel = ref(null)
+const weiland = ref(null)
+const boomgaard = ref(null)
+const bebouwing = ref(null)
+const dennenbos = ref(null)
+const hakhout = ref(null)
+const hooiland = ref(null)
+const kerkhof = ref(null)
+const tuin = ref(null)
+const heide = ref(null)
+const bouwland= ref(null)
+
+const soort = ["weiland", "boomgaard", "bebouwing", "dennenbos", "hakhout", "hooiland", "kerkhof", "tuin", "heide", "bouwland"]
+
+onMounted(() => {
+  // get bouw
+    EventService.getGeoServer("bouw")
+    .then((response) => {
+      bouw.value = response.data
+
+    })
+    .catch((error) => {
+      console.log(error)
+    })
+
+    // get wateren
+    EventService.getGeoServer("wateren")
+    .then((response) => {
+      wateren.value = response.data
+
+    })
+    .catch((error) => {
+      console.log(error)
+    })
+
+    // get percelen
+      // get alle percelen
+      EventService.getGeoServer("perceel")
+    .then((response) => {
+      perceel.value = response.data
+
+    })
+    .catch((error) => {
+      console.log(error)
+    })
+    for (let i = 0; i < soort.length ; i++) {
+      EventService.getGeoServerPerceel(soort[i])
+      .then((response) => {
+        if (i === 0) {weiland.value = response.data}
+        if (i === 1) {boomgaard.value = response.data}
+        if (i === 2) {bebouwing.value = response.data}
+        if (i === 3) {dennenbos.value = response.data}
+        if (i === 4) {hakhout.value = response.data}
+        if (i === 5) {hooiland.value = response.data}
+        if (i === 6) {kerkhof.value = response.data}
+        if (i === 7) {tuin.value = response.data}
+        if (i === 8) {heide.value = response.data}
+        if (i === 9) {bouwland.value = response.data}
+
+
+      })
+      .catch((error) => {
+        console.log(error)
+      })
+    }
+})
 
 
 </script>
