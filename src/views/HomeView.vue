@@ -18,6 +18,13 @@
         :options-style="waterenStyleFunction"
       />
 
+      <l-geo-json 
+        :geojson="perceel"
+        :options="perceelOptions"
+        :options-style="perceelStyleFunction"
+        :onEachFeature="onEachFeature">
+        <l-popup content="perceel" />
+      </l-geo-json>
 
 
       <l-geo-json 
@@ -78,7 +85,7 @@
 
 <script setup>
 import "leaflet/dist/leaflet.css"
-import { LMap, LTileLayer, LMarker, LGeoJson } from "@vue-leaflet/vue-leaflet"
+import { LMap, LTileLayer, LMarker, LGeoJson, LPopup } from "@vue-leaflet/vue-leaflet"
 import { ref, onMounted, watch, computed } from 'vue'
 import EventService from '@/services/EventService.js'
 
@@ -156,11 +163,11 @@ const  perceelBouwlandStyleFunction = {   fillColor: "#d1c40f",
     opacity: 1,
     fillOpacity: 0.8}
 
-    const  perceelStyleFunction = {   fillColor: "#969696",
-    color: "#000",
+    const  perceelStyleFunction = {   
+      color: "#000",
     weight: 1,
     opacity: 1,
-    fillOpacity: 0.8}
+    fillOpacity: 0.0}
 
     const  waterenStyleFunction = {   fillColor: "#44afef",
     color: "#000",
@@ -255,7 +262,9 @@ onMounted(() => {
     }
 })
 
+function perceelOptions() {
 
+}
 </script>
 
 

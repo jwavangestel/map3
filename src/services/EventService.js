@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8080/geoserver/eghv/ows',
+  baseURL: 'http://yann216.nl:8080/geoserver/eghv/ows',
   withCredentials: false,
 
 })
