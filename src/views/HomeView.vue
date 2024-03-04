@@ -1,5 +1,6 @@
 <template>
   <main>
+    <feature-viewer v-if="currentFeature !== null" :feature="currentFeature" />
     <l-map ref="map" v-model:zoom="zoom" v-model:center="center" :useGlobalLeaflet="false">
       <LTileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -7,78 +8,13 @@
           layer-type="base"
           name="OpenStreetMap"
         />
-      <l-geo-json 
-        :geojson="perceelgrens"
-        :options="perceelgrensOptions"
-        :options-style="perceelgrensStyleFunction"
-      />
-      <l-geo-json 
-        :geojson="wateren"
-        :options="waterenOptions"
-        :options-style="waterenStyleFunction"
-      />
 
-      <l-geo-json 
-        :geojson="perceel"
-        :options="perceelOptions"
-        :options-style="perceelStyleFunction"
-        :onEachFeature="onEachFeature">
-        <l-popup content="perceel" />
-      </l-geo-json>
-
-
-      <l-geo-json 
-        :geojson="bouwland"
-        :options="perceel_bouwlandOptions"
-        :options-style="perceelBouwlandStyleFunction"
-      />
-      <l-geo-json 
-        :geojson="dennenbos"
-        :options="perceel_dennenbosOptions"
-        :options-style="perceelDennenbosStyleFunction"
-      />
-      <l-geo-json 
-        :geojson="heide"
-        :options="perceel_heideOptions"
-        :options-style="perceelHeideStyleFunction"
-      />
-      <l-geo-json 
-        :geojson="hakhout"
-        :options="perceel_hakhoutOptions"
-        :options-style="perceelHakhoutStyleFunction"
-      />
-      <l-geo-json 
-        :geojson="boomgaard"
-        :options="perceel_boomgaardOptions"
-        :options-style="perceelBoomgaardStyleFunction"
-      />
-      <l-geo-json 
-        :geojson="hooiland"
-        :options="perceel_hooilandOptions"
-        :options-style="perceelHooilandStyleFunction"
-      />
-      <l-geo-json 
-        :geojson="kerkhof"
-        :options="perceel_kerkhofOptions"
-        :options-style="perceelKerkhofStyleFunction"
-      />
-      <l-geo-json 
-        :geojson="tuin"
-        :options="perceel_tuinOptions"
-        :options-style="perceelTuinStyleFunction"
-      />
-      <l-geo-json 
-        :geojson="weiland"
-        :options="perceel_weilandOptions"
-        :options-style="perceelWeilandStyleFunction"
-      />
-      <l-geo-json 
-        :geojson="bouw"
-        :options="bouwOptions"
-        :options-style="bouwStyleFunction"
-      />
+        <l-geo-json v-for="(data, type, index) in geoJsonData" :key="index"
+          :geojson="data"
+          :options="geoJsonOptions"
+          :options-style="getStyleOptionsFunction(type)"
+        />
     </l-map>
-    {{ weiland }}
   </main>
 </template>
 
@@ -88,183 +24,128 @@ import "leaflet/dist/leaflet.css"
 import { LMap, LTileLayer, LMarker, LGeoJson, LPopup } from "@vue-leaflet/vue-leaflet"
 import { ref, onMounted, watch, computed } from 'vue'
 import EventService from '@/services/EventService.js'
+import { useFeatureStore } from "@/stores/featureStore";
+import FeatureViewer from '@/components/FeatureViewer.vue';
 
-import arcades from "@/data/arcades.json"
-import perceelgrens from "@/data/perceelgrens.json"
-//import perceel from "@/data/perceel.json"
-import perceel_dennenbos from "@/data/perceel_dennenbos.json"
-import perceel_heide from "@/data/perceel_heide.json"
-import perceel_hakhout from "@/data/perceel_hakhout.json"
-import perceel_boomgaard from "@/data/perceel_boomgaard.json"
-import perceel_hooiland from "@/data/perceel_hooiland.json"
-import perceel_kerkhof from "@/data/perceel_kerkhof.json"
-import perceel_tuin from "@/data/perceel_tuin.json"
-//import perceel_weiland from "@/data/perceel_weiland.json"
-import perceel_bebouwing from "@/data/perceel_bebouwing.json"
+const geoJsonData = ref({});
 
-// import bouw from "@/data/bouw.json"
+const zoom = ref(12.48);
+const center = ref([51.45322, 5.359482]);
 
-// import wateren from "@/data/wateren.json"
+const dataTypes = [
+    'weiland',
+    'boomgaard',
+    'bebouwing',
+    'dennenbos',
+    'hakhout',
+    'hooiland',
+    'kerkhof',
+    'tuin',
+    'heide',
+    'bouwland'
+];
 
+const defaultOptions = {
+  weight: 1,
+  opacity: 1,
+  fillOpacity: 0.8
+};
 
+const fillColors = {
+  weiland: '#35ac10',
+  boomgaard: '#e8c030',
+  bebouwing: '#d1c40f',
+  dennenbos: '#31714c',
+  hakhout: '#72a35b',
+  hooiland: '#99995a',
+  kerkhof: '#d53ccd',
+  tuin: '#aa6e05',
+  heide: '#9152d5',
+  bouwland: '#d1c40f',
+  wateren: '#44afef',
+  bouw: '#460156',
+};
 
+const getGeoServer = (async (type) => {
+  const response = await EventService.getGeoServer(type);
+  console.log(response);
+  return response.data;
+});
 
-const  perceelBouwlandStyleFunction = {   fillColor: "#d1c40f",
-    color: "#000",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.8}
+const getGeoServerPerceel = (async (type) => {
+  const response = await EventService.getGeoServerPerceel(type);
+  return response.data;
+});
 
-  const  perceelDennenbosStyleFunction = {   fillColor: "#31714c",
-    color: "#000",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.8}
+const getStyleOptionsFunction = ((type) => {
+  const styleOptions = { ...defaultOptions };
+  if (type in fillColors) {
+    styleOptions.fillColor = fillColors[type];
+  }
+  return () => {
+    return styleOptions;
+  };
+});
 
-  const  perceelHeideStyleFunction = {   fillColor: "#9152d5",
-    color: "#000",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.8}
+const featureStore = useFeatureStore();
 
-    const  perceelBoomgaardStyleFunction = {   fillColor: "#e8c030",
-    color: "#000",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.8}
+const currentFeature = computed(() => featureStore.currentFeature );
 
-    const  perceelHakhoutStyleFunction = {   fillColor: "#72a35b",
-    color: "#000",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.8}
+const layerClick = ((e) => {
+  console.log('CLICK!!');
+  console.log(e.target.feature);
+  featureStore.setCurrentFeature(e.target.feature);
+});
 
-    const  perceelHooilandStyleFunction = {   fillColor: "#99995a",
-    color: "#000",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.8}
+const onEachFeature = ((feature, layer) => {
+  layer.on({
+    click: layerClick,
+  })
+});
 
-    const  perceelKerkhofStyleFunction = {   fillColor: "#d53ccd",
-    color: "#000",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.8}
+const geoJsonOptions = {
+  onEachFeature,
+};
 
-    const  perceelTuinStyleFunction = {   fillColor: "#aa6e05",
-    color: "#000",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.8}
+onMounted(async () => {
+  const promises = [];
+  promises.push(getGeoServer('bouw'));
+  promises.push(getGeoServer('wateren'));
+  promises.push(getGeoServer('perceel'));
+  promises.push(getGeoServerPerceel('weiland'));
+  promises.push(getGeoServerPerceel('boomgaard'));
+  promises.push(getGeoServerPerceel('bebouwing'));
+  promises.push(getGeoServerPerceel('dennenbos'));
+  promises.push(getGeoServerPerceel('hakhout'));
+  promises.push(getGeoServerPerceel('hooiland'));
+  promises.push(getGeoServerPerceel('kerkhof'));
+  promises.push(getGeoServerPerceel('tuin'));
+  promises.push(getGeoServerPerceel('heide'));
+  promises.push(getGeoServerPerceel('bouwland'));
 
-    const  perceelWeilandStyleFunction = {   fillColor: "#35ac10",
-    color: "#000",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.8}
-
-    const  perceelStyleFunction = {   
-      color: "#000",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.0}
-
-    const  waterenStyleFunction = {   fillColor: "#44afef",
-    color: "#000",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.8}
-
-
-    const  bouwStyleFunction = {   fillColor: "#460156",
-    color: "#000",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.8}
-
-
-
-const  perceelgrensStyleFunction = {color:  'gray'}
-
-let zoom = ref(12.48)
-let center = ref([51.45322, 5.359482])
-
-//const props = defineProps({
-//   id: { required: true },
-//})
-
-const bouw = ref(null)
-const wateren = ref(null)
-const perceel = ref(null)
-const weiland = ref(null)
-const boomgaard = ref(null)
-const bebouwing = ref(null)
-const dennenbos = ref(null)
-const hakhout = ref(null)
-const hooiland = ref(null)
-const kerkhof = ref(null)
-const tuin = ref(null)
-const heide = ref(null)
-const bouwland= ref(null)
-
-const soort = ["weiland", "boomgaard", "bebouwing", "dennenbos", "hakhout", "hooiland", "kerkhof", "tuin", "heide", "bouwland"]
-
-onMounted(() => {
-  // get bouw
-    EventService.getGeoServer("bouw")
-    .then((response) => {
-      bouw.value = response.data
-
-    })
-    .catch((error) => {
-      console.log(error)
-    })
-
-    // get wateren
-    EventService.getGeoServer("wateren")
-    .then((response) => {
-      wateren.value = response.data
-
-    })
-    .catch((error) => {
-      console.log(error)
-    })
-
-    // get percelen
-      // get alle percelen
-      EventService.getGeoServer("perceel")
-    .then((response) => {
-      perceel.value = response.data
-
-    })
-    .catch((error) => {
-      console.log(error)
-    })
-    for (let i = 0; i < soort.length ; i++) {
-      EventService.getGeoServerPerceel(soort[i])
-      .then((response) => {
-        if (i === 0) {weiland.value = response.data}
-        if (i === 1) {boomgaard.value = response.data}
-        if (i === 2) {bebouwing.value = response.data}
-        if (i === 3) {dennenbos.value = response.data}
-        if (i === 4) {hakhout.value = response.data}
-        if (i === 5) {hooiland.value = response.data}
-        if (i === 6) {kerkhof.value = response.data}
-        if (i === 7) {tuin.value = response.data}
-        if (i === 8) {heide.value = response.data}
-        if (i === 9) {bouwland.value = response.data}
+  const [ bouw, wateren, perceel, weiland,boomgaard,bebouwing,dennenbos,hakhout,hooiland,kerkhof,tuin,heide,bouwland ] = await Promise.all(promises);
+  console.log(bouw);
+  geoJsonData.value = {
+    bouw,
+    wateren,
+    perceel,
+    weiland,
+    boomgaard,
+    bebouwing,
+    dennenbos,
+    hakhout,
+    hooiland,
+    kerkhof,
+    tuin,
+    heide,
+    bouwland,
+  };
+  console.log(geoJsonData.value);
+});
 
 
-      })
-      .catch((error) => {
-        console.log(error)
-      })
-    }
-})
 
-function perceelOptions() {
 
-}
 </script>
 
 

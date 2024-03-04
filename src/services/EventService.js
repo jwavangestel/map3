@@ -8,9 +8,11 @@ const apiClient = axios.create({
 
 export default {
   getGeoServer(laag) {
+    console.log('GETTING', laag);
     return apiClient.get("?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application%2Fjson&typeName=eghv%3A" + laag)
   },
   getGeoServerPerceel(soort) {
+    console.log('GETTING', soort);
       return apiClient.get("?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application%2Fjson&typeName=eghv%3Aperceel&cql_filter=oat_omschrijving%20=%20%27" + soort + "%27")
     },
  
